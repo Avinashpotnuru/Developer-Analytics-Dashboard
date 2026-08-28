@@ -103,6 +103,8 @@ export interface KpiMetric {
 export interface CommitActivityPoint {
   week: string;
   commits: number;
+  /** ISO start date of the week, used for range filtering. */
+  weekStart?: string;
 }
 
 export interface LanguageShare {

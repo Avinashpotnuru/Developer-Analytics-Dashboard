@@ -7,11 +7,13 @@ import {
   GitCommitHorizontal,
   GitFork,
   GitPullRequest,
+  Loader2,
   Star,
   type LucideIcon,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
@@ -23,9 +25,12 @@ import { RepositoriesTable } from "@/components/repositories/repositories-table"
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
+import { OnboardingGuide } from "@/components/dashboard/onboarding-guide";
 import { RepoSelector } from "@/components/github/repo-selector";
+import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { useGitHubContext, repoFullName } from "@/components/github/github-context";
 import { useDeveloperAnalytics } from "@/lib/analytics/queries";
+import { formatRangeLabel } from "@/lib/filters";
 import { formatNumber } from "@/lib/format";
 import type { ActivityEvent } from "@/lib/types";
 
@@ -39,7 +44,7 @@ const KPI_ICONS: Record<string, LucideIcon> = {
 };
 
 export default function DashboardPage() {
-  const { username, selectedRepo } = useGitHubContext();
+  const { username, selectedRepo, dateRange } = useGitHubContext();
   const fullName = repoFullName(selectedRepo);
   const {
     analytics,
@@ -47,11 +52,16 @@ export default function DashboardPage() {
     repositories,
     commits,
     isLoading,
+    isRefreshing,
     isError,
     error,
     sectionErrors,
     refetch,
   } = useDeveloperAnalytics();
+
+  if (!username) {
+    return <OnboardingGuide />;
+  }
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -87,9 +97,9 @@ export default function DashboardPage() {
     { id: "repositories", label: "Repositories", value: overview.totalRepositories },
     { id: "stars", label: "Total Stars", value: overview.totalStars },
     { id: "forks", label: "Forks", value: overview.totalForks },
-    { id: "commits", label: "Commits", value: overview.totalCommits },
-    { id: "pullRequests", label: "Pull Requests", value: overview.totalPullRequests },
-    { id: "issues", label: "Issues", value: overview.totalIssues },
+    { id: "commits", label: "Recent commits", value: overview.totalCommits },
+    { id: "pullRequests", label: "Recent PRs", value: overview.totalPullRequests },
+    { id: "issues", label: "Recent Issues", value: overview.totalIssues },
   ];
 
   const firstName = (profile?.name ?? username).split(" ")[0];
@@ -106,6 +116,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <Header username={username} />
+
+      <DashboardControls isRefreshing={isRefreshing} onRefresh={refetch} />
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="relative overflow-hidden lg:col-span-2">
@@ -174,7 +186,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Commit Activity</CardTitle>
             <CardDescription>
-              Weekly commits for {fullName ?? "the selected repository"}
+              Weekly commits · {formatRangeLabel(dateRange)}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -212,7 +224,9 @@ export default function DashboardPage() {
         <Card className="col-span-full">
           <CardHeader>
             <CardTitle>Contribution Graph</CardTitle>
-            <CardDescription>Your coding activity over the last year</CardDescription>
+            <CardDescription>
+              Your coding activity · {formatRangeLabel(dateRange)}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {sectionErrors.activity ? (
@@ -324,7 +338,41 @@ function Header({ username }: { username: string }) {
         </h1>
         <p className="text-sm text-muted-foreground">Analytics for @{username}</p>
       </div>
+    </div>
+  );
+}
+
+function DashboardControls({
+  isRefreshing,
+  onRefresh,
+}: {
+  isRefreshing: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-3"
+      aria-busy={isRefreshing}
+    >
       <RepoSelector />
+      <DateRangeFilter />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onRefresh}
+        disabled={isRefreshing}
+        aria-label="Refresh dashboard data"
+      >
+        <Loader2
+          className={isRefreshing ? "size-4 animate-spin" : "size-4"}
+          aria-hidden="true"
+        />
+        {isRefreshing ? "Refreshing…" : "Refresh"}
+      </Button>
+      <span className="sr-only" role="status" aria-live="polite">
+        {isRefreshing ? "Refreshing dashboard data" : ""}
+      </span>
     </div>
   );
 }

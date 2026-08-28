@@ -7,27 +7,39 @@ import { useGitHubContext } from "@/components/github/github-context";
 import { useRepositories } from "@/lib/github/queries";
 
 export function RepoSelector() {
-  const { username, selectedRepo, setSelectedRepo } = useGitHubContext();
+  const {
+    username,
+    repositoryMode,
+    setRepositoryMode,
+    selectedRepo,
+    setSelectedRepo,
+  } = useGitHubContext();
   const { data: repos, isLoading } = useRepositories(username, {
     perPage: 100,
     sort: "updated",
     type: "owner",
   });
 
-  const fullName = selectedRepo
-    ? `${selectedRepo.owner}/${selectedRepo.repo}`
-    : "";
+  const value =
+    repositoryMode === "all"
+      ? "all"
+      : selectedRepo
+        ? `${selectedRepo.owner}/${selectedRepo.repo}`
+        : "";
 
   const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = event.target.value;
-    if (!value) {
+    const next = event.target.value;
+    if (next === "all") {
+      setRepositoryMode("all");
       setSelectedRepo(null);
       return;
     }
-    const index = value.indexOf("/");
+    if (!next) return;
+    const index = next.indexOf("/");
+    setRepositoryMode("single");
     setSelectedRepo({
-      owner: value.slice(0, index),
-      repo: value.slice(index + 1),
+      owner: next.slice(0, index),
+      repo: next.slice(index + 1),
     });
   };
 
@@ -35,13 +47,14 @@ export function RepoSelector() {
     <div className="flex items-center gap-2">
       <GitBranch className="size-4 text-muted-foreground" />
       <select
-        value={fullName}
+        value={value}
         onChange={handleChange}
         disabled={isLoading || !repos?.length}
         aria-label="Select repository"
         className="focus-visible:ring-ring h-9 w-56 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >
-        <option value="">
+        <option value="all">All repositories</option>
+        <option value="" disabled>
           {isLoading ? "Loading repositories…" : "Select a repository"}
         </option>
         {repos?.map((repo) => (

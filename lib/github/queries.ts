@@ -31,7 +31,7 @@ interface QueryOptions {
   state?: string;
 }
 
-async function apiGet<T>(
+export async function apiGet<T>(
   path: string,
   params?: Record<string, string | number | undefined>,
 ): Promise<T> {
@@ -75,7 +75,7 @@ const ACTIVITY_STALE = 2 * 60 * 1000;
 
 export function useUser(username: string | undefined) {
   return useQuery({
-    queryKey: ["user", username],
+    queryKey: ["github", "user", username],
     queryFn: () =>
       apiGet<DeveloperProfile>(`/users/${encodeURIComponent(username ?? "")}`),
     enabled: Boolean(username),
@@ -88,7 +88,7 @@ export function useRepositories(
   options: QueryOptions = {},
 ) {
   return useQuery({
-    queryKey: ["repositories", username, options],
+    queryKey: ["github", "repositories", username, options],
     queryFn: () =>
       apiGet<Repository[]>(
         `/users/${encodeURIComponent(username ?? "")}/repositories`,
@@ -110,7 +110,7 @@ export function useCommits(
   options: QueryOptions = {},
 ) {
   return useQuery({
-    queryKey: ["commits", owner, repo, options],
+    queryKey: ["github", "commits", owner, repo, options],
     queryFn: () =>
       apiGet<Commit[]>(
         `/repos/${encodeURIComponent(owner ?? "")}/${encodeURIComponent(repo ?? "")}/commits`,
@@ -127,7 +127,7 @@ export function usePullRequests(
   options: QueryOptions = {},
 ) {
   return useQuery({
-    queryKey: ["pull-requests", owner, repo, options],
+    queryKey: ["github", "pull-requests", owner, repo, options],
     queryFn: () =>
       apiGet<PullRequest[]>(
         `/repos/${encodeURIComponent(owner ?? "")}/${encodeURIComponent(repo ?? "")}/pulls`,
@@ -144,7 +144,7 @@ export function useIssues(
   options: QueryOptions = {},
 ) {
   return useQuery({
-    queryKey: ["issues", owner, repo, options],
+    queryKey: ["github", "issues", owner, repo, options],
     queryFn: () =>
       apiGet<Issue[]>(
         `/repos/${encodeURIComponent(owner ?? "")}/${encodeURIComponent(repo ?? "")}/issues`,
@@ -157,7 +157,7 @@ export function useIssues(
 
 export function useLanguages(owner: string | undefined, repo: string | undefined) {
   return useQuery({
-    queryKey: ["languages", owner, repo],
+    queryKey: ["github", "languages", owner, repo],
     queryFn: () =>
       apiGet<Record<string, number>>(
         `/repos/${encodeURIComponent(owner ?? "")}/${encodeURIComponent(repo ?? "")}/languages`,
@@ -177,7 +177,7 @@ export function useCommitActivity(
   repo: string | undefined,
 ) {
   return useQuery({
-    queryKey: ["commit-activity", owner, repo],
+    queryKey: ["github", "commit-activity", owner, repo],
     queryFn: () =>
       apiGet<CommitActivityResult>(
         `/repos/${encodeURIComponent(owner ?? "")}/${encodeURIComponent(repo ?? "")}/stats/commit-activity`,

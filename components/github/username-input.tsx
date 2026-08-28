@@ -40,7 +40,7 @@ export function UsernameInput() {
             onChange={(event) => setValue(event.target.value)}
             placeholder="GitHub username"
             aria-label="GitHub username"
-            className="w-44 pl-8"
+            className="min-w-0 flex-1 pl-8 sm:w-44"
           />
         </div>
         <Button type="submit" size="sm">

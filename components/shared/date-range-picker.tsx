@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -71,7 +72,9 @@ export function DateRangePicker({
         {current.label}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuLabel>Date range</DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Date range</DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuRadioGroup
           value={value}
           onValueChange={(next) => onChange(next as DateRangeValue)}

@@ -75,7 +75,7 @@ export default function IssuesPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total Issues" value={formatNumber(issueAnalytics.total)} icon={CircleSlash} />
+        <StatCard label="Recent Issues" value={formatNumber(issueAnalytics.total)} icon={CircleSlash} />
         <StatCard label="Open" value={formatNumber(issueAnalytics.open)} icon={CircleDot} />
         <StatCard label="Closed" value={formatNumber(issueAnalytics.closed)} icon={CheckCircle2} />
       </div>

@@ -271,7 +271,7 @@ describe("calculateIssueTrend", () => {
 describe("getDeveloperAnalytics", () => {
   it("computes the full analytics object from normal data", () => {
     const result = getDeveloperAnalytics({
-      profile,
+      profile: { ...profile, publicRepos: 2 },
       repositories: [makeRepository({ stars: 10 }), makeRepository({ fullName: "o/b", stars: 20 })],
       commits: [makeCommit(), makeCommit({ id: "c2", sha: "sha2" }), makeCommit({ id: "c3", sha: "sha3" })],
       pullRequests: [

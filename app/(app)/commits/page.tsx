@@ -71,7 +71,7 @@ export default function CommitsPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Commits" value={formatNumber(commitAnalytics.totalCommits)} icon={GitCommitHorizontal} />
+        <StatCard label="Recent commits" value={formatNumber(commitAnalytics.totalCommits)} icon={GitCommitHorizontal} />
         <StatCard label="Contributors" value={formatNumber(contributors)} icon={Users} />
         <StatCard
           label="Avg / Week"

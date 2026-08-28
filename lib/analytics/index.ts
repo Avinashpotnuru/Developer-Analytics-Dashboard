@@ -1,4 +1,6 @@
 import type { AnalyticsInput, DeveloperAnalytics } from "./types";
+import { applyDateRange, applyRepositoryFilter } from "@/lib/filters";
+import type { DateRangeFilter, RepositoryFilter } from "@/lib/filters";
 import { calculateOverview } from "./overview";
 import { calculateCommitAnalytics } from "./commits";
 import { calculateRepositoryAnalytics } from "./repositories";
@@ -27,13 +29,46 @@ export {
 export { calculateLanguageDistribution } from "./languages";
 export { dedupeCommits, dedupeRepositories } from "./utils";
 
-export function getDeveloperAnalytics(input: AnalyticsInput): DeveloperAnalytics {
+export interface AnalyticsOptions {
+  /** Restrict date-based metrics to a time window. */
+  dateRange?: DateRangeFilter;
+  /** Restrict metrics to a single repository. */
+  repository?: RepositoryFilter;
+}
+
+export function getDeveloperAnalytics(
+  input: AnalyticsInput,
+  options: AnalyticsOptions = {},
+): DeveloperAnalytics {
+  const scoped = applyRepositoryFilter(
+    {
+      commits: input.commits,
+      pullRequests: input.pullRequests,
+      issues: input.issues,
+      commitActivity: input.commitActivity,
+    },
+    options.repository,
+  );
+  const ranged = applyDateRange(scoped, options.dateRange);
+
   return {
-    overview: calculateOverview(input),
-    commits: calculateCommitAnalytics(input),
+    overview: calculateOverview({
+      ...input,
+      commits: ranged.commits,
+      pullRequests: ranged.pullRequests,
+      issues: ranged.issues,
+    }),
+    commits: calculateCommitAnalytics({
+      ...input,
+      commits: ranged.commits,
+      commitActivity: ranged.commitActivity,
+    }),
     repositories: calculateRepositoryAnalytics(input),
-    pullRequests: calculatePullRequestAnalytics(input),
-    issues: calculateIssueAnalytics(input),
+    pullRequests: calculatePullRequestAnalytics({
+      ...input,
+      pullRequests: ranged.pullRequests,
+    }),
+    issues: calculateIssueAnalytics({ ...input, issues: ranged.issues }),
     languages: calculateLanguageDistribution(input.languages),
   };
 }

@@ -2,11 +2,12 @@ import { Brand } from "./brand";
 import { MobileNavigation } from "./mobile-navigation";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
+import { HelpDialog } from "./help-dialog";
 import { UsernameInput } from "@/components/github/username-input";
 
 export function Topbar() {
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-6">
+    <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center gap-3 border-b bg-background/80 px-4 py-2 backdrop-blur md:px-6 md:py-0">
       <div className="md:hidden">
         <MobileNavigation />
       </div>
@@ -14,9 +15,14 @@ export function Topbar() {
         <Brand />
       </div>
       <div className="flex-1" />
-      <UsernameInput />
+      <div className="order-last w-full sm:order-none sm:w-auto">
+        <UsernameInput />
+      </div>
+      <HelpDialog />
       <ThemeToggle />
-      <UserMenu />
+      <div className="hidden md:flex">
+        <UserMenu />
+      </div>
     </header>
   );
 }

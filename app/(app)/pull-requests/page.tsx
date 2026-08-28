@@ -73,7 +73,7 @@ export default function PullRequestsPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total PRs" value={formatNumber(prAnalytics.total)} icon={GitPullRequest} />
+        <StatCard label="Recent PRs" value={formatNumber(prAnalytics.total)} icon={GitPullRequest} />
         <StatCard label="Open" value={formatNumber(prAnalytics.open)} icon={CircleDot} />
         <StatCard label="Merged" value={formatNumber(prAnalytics.merged)} icon={GitMerge} />
         <StatCard label="Closed" value={formatNumber(prAnalytics.closed)} icon={GitPullRequestClosed} />

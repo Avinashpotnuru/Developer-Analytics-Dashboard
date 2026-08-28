@@ -36,12 +36,6 @@ const MONTHS = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-function formatMonthDay(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return `${MONTHS[date.getMonth()]} ${String(date.getDate()).padStart(2, "0")}`;
-}
-
 export function transformProfile(user: GitHubUser): DeveloperProfile {
   return {
     username: user.login,
@@ -152,14 +146,18 @@ export function transformCommitActivity(weeks: GitHubCommitActivityWeek[]): {
   weekly: CommitActivityPoint[];
   daily: ContributionDay[];
 } {
-  const weekly: CommitActivityPoint[] = weeks.map((week) => ({
-    week: formatMonthDay(week.week),
-    commits: week.total,
-  }));
+  const weekly: CommitActivityPoint[] = weeks.map((week) => {
+    const start = new Date(Number(week.week) * 1000);
+    return {
+      week: `${MONTHS[start.getMonth()]} ${String(start.getDate()).padStart(2, "0")}`,
+      weekStart: start.toISOString().slice(0, 10),
+      commits: week.total,
+    };
+  });
 
   const daily: ContributionDay[] = [];
   for (const week of weeks) {
-    const start = new Date(week.week);
+    const start = new Date(Number(week.week) * 1000);
     if (Number.isNaN(start.getTime())) continue;
     week.days.forEach((count, index) => {
       const day = new Date(start);
