@@ -12,7 +12,17 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent tooling and skill scripts are outside the application source:
+    ".opencode/**",
+    ".agents/**",
   ]),
+  {
+    rules: {
+      // TanStack Table v8 returns non-memoizable functions from useReactTable;
+      // this is expected and safe for our usage.
+      "react-hooks/incompatible-library": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

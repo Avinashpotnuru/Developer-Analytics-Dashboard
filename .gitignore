@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local tooling / agent config (not for GitHub)
+.opencode/
+.agents/
+CLAUDE.md
+skills-lock.json
+
+# editor / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
