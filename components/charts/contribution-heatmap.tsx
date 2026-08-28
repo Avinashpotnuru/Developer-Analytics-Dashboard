@@ -20,6 +20,9 @@ const MONTHS = [
 const WEEKDAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
 
 function buildWeeks(data: ContributionDay[]): (ContributionDay | null)[][] {
+  if (data.length === 0) {
+    return [];
+  }
   const lead = new Date(data[0].date).getDay();
   const cells: (ContributionDay | null)[] = [];
   for (let i = 0; i < lead; i++) cells.push(null);

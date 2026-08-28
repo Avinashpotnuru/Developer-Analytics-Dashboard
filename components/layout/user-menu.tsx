@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FolderGit2, LogOut, User as UserIcon } from "lucide-react";
+import { FolderGit2, User as UserIcon } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -12,10 +12,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { mockProfile } from "@/lib/mock-data";
+import { useGitHubContext } from "@/components/github/github-context";
+import { useUser } from "@/lib/github/queries";
 import { getInitials } from "@/lib/utils";
 
 export function UserMenu() {
+  const { username } = useGitHubContext();
+  const { data: profile } = useUser(username);
+  const name = profile?.name ?? username;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -23,17 +28,15 @@ export function UserMenu() {
         className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Avatar size="sm">
-          <AvatarImage src={mockProfile.avatarUrl} alt={mockProfile.name} />
-          <AvatarFallback>{getInitials(mockProfile.name)}</AvatarFallback>
+          <AvatarImage src={profile?.avatarUrl} alt={name} />
+          <AvatarFallback>{getInitials(name)}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col">
-            <span className="text-sm font-medium">{mockProfile.name}</span>
-            <span className="text-xs text-muted-foreground">
-              @{mockProfile.username}
-            </span>
+            <span className="text-sm font-medium">{name}</span>
+            <span className="text-xs text-muted-foreground">@{username}</span>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -44,11 +47,6 @@ export function UserMenu() {
         <DropdownMenuItem render={<Link href="/repositories" />}>
           <FolderGit2 className="size-4" />
           Repositories
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive">
-          <LogOut className="size-4" />
-          Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -2,6 +2,7 @@ import { Brand } from "./brand";
 import { MobileNavigation } from "./mobile-navigation";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
+import { UsernameInput } from "@/components/github/username-input";
 
 export function Topbar() {
   return (
@@ -13,6 +14,7 @@ export function Topbar() {
         <Brand />
       </div>
       <div className="flex-1" />
+      <UsernameInput />
       <ThemeToggle />
       <UserMenu />
     </header>

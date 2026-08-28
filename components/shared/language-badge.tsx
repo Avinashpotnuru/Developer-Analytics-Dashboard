@@ -1,15 +1,14 @@
 import { cn } from "@/lib/utils";
-import { LANGUAGE_COLORS } from "@/lib/format";
-import type { ProgrammingLanguage } from "@/lib/types";
+import { getLanguageColor } from "@/lib/format";
 
 export function LanguageBadge({
   language,
   className,
 }: {
-  language: ProgrammingLanguage;
+  language: string;
   className?: string;
 }) {
-  const color = LANGUAGE_COLORS[language];
+  const color = getLanguageColor(language);
   return (
     <span
       className={cn(

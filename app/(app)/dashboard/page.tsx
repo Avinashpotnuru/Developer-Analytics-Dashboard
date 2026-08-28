@@ -13,7 +13,6 @@ import {
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { CommitActivityChart } from "@/components/charts/commit-activity-chart";
@@ -21,18 +20,26 @@ import { LanguageDistributionChart } from "@/components/charts/language-distribu
 import { ContributionHeatmap } from "@/components/charts/contribution-heatmap";
 import { RepositoriesTable } from "@/components/repositories/repositories-table";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
-import { useSimulatedLoading } from "@/hooks/use-simulated-loading";
+import { ErrorState } from "@/components/shared/error-state";
+import { EmptyState } from "@/components/shared/empty-state";
+import { RepoSelector } from "@/components/github/repo-selector";
+import { useGitHubContext, repoFullName } from "@/components/github/github-context";
 import {
-  type DateRangeValue,
-  getCommitRange,
-} from "@/components/shared/date-range-picker";
+  useCommits,
+  useCommitActivity,
+  useIssues,
+  useLanguages,
+  usePullRequests,
+  useRepositories,
+  useUser,
+} from "@/lib/github/queries";
+import {
+  summarizeIssues,
+  summarizePullRequests,
+  summarizeRepositories,
+} from "@/lib/github/transform";
 import { formatNumber } from "@/lib/format";
-import {
-  mockActivity,
-  mockAnalytics,
-  mockProfile,
-  mockRepositories,
-} from "@/lib/mock-data";
+import type { ActivityEvent } from "@/lib/types";
 
 const KPI_ICONS: Record<string, LucideIcon> = {
   repositories: FolderGit2,
@@ -44,39 +51,102 @@ const KPI_ICONS: Record<string, LucideIcon> = {
 };
 
 export default function DashboardPage() {
-  const loading = useSimulatedLoading(700);
-  const [range, setRange] = React.useState<DateRangeValue>("12w");
-  const [refreshing, setRefreshing] = React.useState(false);
+  const { username, selectedRepo, setSelectedRepo } = useGitHubContext();
+  const fullName = repoFullName(selectedRepo);
 
-  const commitData = React.useMemo(
-    () => getCommitRange(mockAnalytics.commitActivity, range),
-    [range],
-  );
+  const user = useUser(username);
+  const repos = useRepositories(username, {
+    perPage: 100,
+    sort: "updated",
+    type: "owner",
+  });
+  const activity = useCommitActivity(selectedRepo?.owner, selectedRepo?.repo);
+  const languages = useLanguages(selectedRepo?.owner, selectedRepo?.repo);
+  const pulls = usePullRequests(selectedRepo?.owner, selectedRepo?.repo, {
+    perPage: 100,
+  });
+  const issues = useIssues(selectedRepo?.owner, selectedRepo?.repo, {
+    perPage: 100,
+  });
+  const commits = useCommits(selectedRepo?.owner, selectedRepo?.repo, {
+    perPage: 100,
+  });
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  };
+  React.useEffect(() => {
+    if (!selectedRepo && repos.data && repos.data.length > 0) {
+      const [owner, ...rest] = repos.data[0].fullName.split("/");
+      setSelectedRepo({ owner, repo: rest.join("/") });
+    }
+  }, [selectedRepo, repos.data, setSelectedRepo]);
 
-  if (loading) {
+  const isLoading = user.isLoading || repos.isLoading;
+  if (isLoading) {
     return <LoadingSkeleton />;
   }
 
-  const firstName = mockProfile.name.split(" ")[0];
-  const commitsKpi =
-    mockAnalytics.kpis.find((kpi) => kpi.id === "commits") ?? mockAnalytics.kpis[3];
-  const reposKpi =
-    mockAnalytics.kpis.find((kpi) => kpi.id === "repositories") ??
-    mockAnalytics.kpis[0];
+  const userError = user.error ?? repos.error;
+  if (userError) {
+    return (
+      <ErrorState
+        title="Could not load the dashboard"
+        message={userError.message}
+        onRetry={() => {
+          void user.refetch();
+          void repos.refetch();
+        }}
+      />
+    );
+  }
+
+  const profile = user.data;
+  if (!profile) {
+    return null;
+  }
+
+  const repoList = repos.data ?? [];
+
+  if (repoList.length === 0) {
+    return (
+      <div className="space-y-6">
+        <Header username={username} />
+        <EmptyState
+          title="No repositories found"
+          description={`We couldn't find any public repositories for @${username}.`}
+        />
+      </div>
+    );
+  }
+
+  const repoSummary = summarizeRepositories(repoList);
+  const prSummary = summarizePullRequests(pulls.data ?? []);
+  const issueSummary = summarizeIssues(issues.data ?? []);
+  const weekly = activity.data?.weekly ?? [];
+  const totalCommits = weekly.reduce((sum, point) => sum + point.commits, 0);
+  const contribution = activity.data?.daily ?? [];
+
+  const kpis = [
+    { id: "repositories", label: "Repositories", value: repoSummary.count },
+    { id: "stars", label: "Total Stars", value: repoSummary.totalStars },
+    { id: "forks", label: "Forks", value: repoSummary.totalForks },
+    { id: "commits", label: "Commits", value: totalCommits },
+    { id: "pullRequests", label: "Pull Requests", value: prSummary.total },
+    { id: "issues", label: "Issues", value: issueSummary.total },
+  ];
+
+  const firstName = profile.name.split(" ")[0];
+  const recentEvents: ActivityEvent[] = (commits.data ?? []).slice(0, 8).map(
+    (commit) => ({
+      id: commit.id,
+      type: "commit",
+      repository: commit.repository,
+      description: commit.message,
+      date: commit.date,
+    }),
+  );
 
   return (
     <div className="space-y-6">
-      <DashboardHeader
-        range={range}
-        onRangeChange={setRange}
-        onRefresh={handleRefresh}
-        refreshing={refreshing}
-      />
+      <Header username={username} />
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="relative overflow-hidden lg:col-span-2">
@@ -84,9 +154,9 @@ export default function DashboardPage() {
           <CardContent className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center">
             <div className="ring-brand-gradient rounded-full p-1">
               <Avatar size="lg" className="!size-20">
-                <AvatarImage src={mockProfile.avatarUrl} alt={mockProfile.name} />
+                <AvatarImage src={profile.avatarUrl} alt={profile.name} />
                 <AvatarFallback>
-                  {mockProfile.name.slice(0, 2).toUpperCase()}
+                  {profile.name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -96,20 +166,20 @@ export default function DashboardPage() {
                 {firstName}
               </h2>
               <p className="max-w-md text-sm text-muted-foreground">
-                You shipped{" "}
+                You have{" "}
                 <span className="font-medium text-foreground tabular-nums">
-                  {formatNumber(commitsKpi.value)}
+                  {formatNumber(repoSummary.count)}
                 </span>{" "}
-                commits across{" "}
+                public repositories with{" "}
                 <span className="font-medium text-foreground tabular-nums">
-                  {reposKpi.value}
+                  {formatNumber(repoSummary.totalStars)}
                 </span>{" "}
-                repositories this year.
+                total stars.
               </p>
             </div>
             <div className="sm:ml-auto sm:text-right">
               <p className="font-heading text-4xl font-semibold tracking-tight tabular-nums text-gradient">
-                {formatNumber(mockProfile.totalStars)}
+                {formatNumber(repoSummary.totalStars)}
               </p>
               <p className="text-sm text-muted-foreground">total stars earned</p>
             </div>
@@ -117,56 +187,64 @@ export default function DashboardPage() {
         </Card>
 
         <div className="grid grid-cols-2 gap-4">
-          {mockAnalytics.kpis.slice(0, 2).map((kpi) => {
-            const Icon = KPI_ICONS[kpi.id] ?? FolderGit2;
-            return (
-              <StatCard
-                key={kpi.id}
-                label={kpi.label}
-                value={formatNumber(kpi.value)}
-                change={kpi.change}
-                spark={kpi.spark}
-                icon={Icon}
-              />
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {mockAnalytics.kpis.slice(2).map((kpi) => {
-          const Icon = KPI_ICONS[kpi.id] ?? FolderGit2;
-          return (
+          {kpis.slice(0, 2).map((kpi) => (
             <StatCard
               key={kpi.id}
               label={kpi.label}
               value={formatNumber(kpi.value)}
-              change={kpi.change}
-              spark={kpi.spark}
-              icon={Icon}
-              featured={kpi.id === "commits"}
+              icon={KPI_ICONS[kpi.id] ?? FolderGit2}
             />
-          );
-        })}
+          ))}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {kpis.slice(2).map((kpi) => (
+          <StatCard
+            key={kpi.id}
+            label={kpi.label}
+            value={formatNumber(kpi.value)}
+            icon={KPI_ICONS[kpi.id] ?? FolderGit2}
+            featured={kpi.id === "commits"}
+          />
+        ))}
       </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Commit Activity</CardTitle>
-            <CardDescription>Commits over the selected period</CardDescription>
+            <CardDescription>
+              Weekly commits for {fullName ?? "the selected repository"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <CommitActivityChart data={commitData} />
+            {activity.isError ? (
+              <ErrorState
+                title="Commit activity unavailable"
+                message={activity.error.message}
+                onRetry={() => void activity.refetch()}
+              />
+            ) : (
+              <CommitActivityChart data={weekly} />
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Language Distribution</CardTitle>
-            <CardDescription>Share across repositories</CardDescription>
+            <CardDescription>Languages in {fullName ?? "the repository"}</CardDescription>
           </CardHeader>
           <CardContent>
-            <LanguageDistributionChart data={mockAnalytics.languageDistribution} />
+            {languages.isError ? (
+              <ErrorState
+                title="Languages unavailable"
+                message={languages.error.message}
+                onRetry={() => void languages.refetch()}
+              />
+            ) : (
+              <LanguageDistributionChart data={languages.data ?? []} />
+            )}
           </CardContent>
         </Card>
       </section>
@@ -178,16 +256,36 @@ export default function DashboardPage() {
             <CardDescription>Your coding activity over the last year</CardDescription>
           </CardHeader>
           <CardContent>
-            <ContributionHeatmap data={mockAnalytics.contribution} />
+            {activity.isError ? (
+              <ErrorState
+                title="Contribution graph unavailable"
+                message={activity.error.message}
+                onRetry={() => void activity.refetch()}
+              />
+            ) : (
+              <ContributionHeatmap data={contribution} />
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest events across your projects</CardDescription>
+            <CardDescription>Latest commits across the repository</CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentActivity events={mockActivity.slice(0, 8)} />
+            {commits.isError ? (
+              <ErrorState
+                title="Activity unavailable"
+                message={commits.error.message}
+                onRetry={() => void commits.refetch()}
+              />
+            ) : recentEvents.length > 0 ? (
+              <RecentActivity events={recentEvents} />
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No recent commits.
+              </p>
+            )}
           </CardContent>
         </Card>
       </section>
@@ -196,13 +294,27 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Top Repositories</CardTitle>
-            <CardDescription>Your most active projects</CardDescription>
+            <CardDescription>Your most recently updated projects</CardDescription>
           </CardHeader>
           <CardContent>
-            <RepositoriesTable repositories={mockRepositories.slice(0, 6)} compact />
+            <RepositoriesTable repositories={repoList.slice(0, 6)} compact />
           </CardContent>
         </Card>
       </section>
+    </div>
+  );
+}
+
+function Header({ username }: { username: string }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">
+          Dashboard
+        </h1>
+        <p className="text-sm text-muted-foreground">Analytics for @{username}</p>
+      </div>
+      <RepoSelector />
     </div>
   );
 }

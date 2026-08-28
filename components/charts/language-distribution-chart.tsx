@@ -3,7 +3,7 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { cn } from "@/lib/utils";
-import { LANGUAGE_COLORS } from "@/lib/format";
+import { getLanguageColor } from "@/lib/format";
 import { ChartTooltip } from "@/components/shared/chart-tooltip";
 import type { LanguageShare } from "@/lib/types";
 
@@ -16,6 +16,14 @@ export function LanguageDistributionChart({
   data,
   className,
 }: LanguageDistributionChartProps) {
+  if (!data.length) {
+    return (
+      <p className="py-10 text-center text-sm text-muted-foreground">
+        No language data available.
+      </p>
+    );
+  }
+
   const top = data.reduce(
     (best, current) => (current.percentage > best.percentage ? current : best),
     data[0],
@@ -45,7 +53,7 @@ export function LanguageDistributionChart({
               {data.map((entry) => (
                 <Cell
                   key={entry.language}
-                  fill={LANGUAGE_COLORS[entry.language]}
+                  fill={getLanguageColor(entry.language)}
                 />
               ))}
             </Pie>
@@ -70,7 +78,7 @@ export function LanguageDistributionChart({
             <span className="flex items-center gap-2">
               <span
                 className="size-2.5 rounded-full"
-                style={{ backgroundColor: LANGUAGE_COLORS[entry.language] }}
+                style={{ backgroundColor: getLanguageColor(entry.language) }}
                 aria-hidden
               />
               {entry.language}

@@ -1,23 +1,13 @@
 export type RepositoryVisibility = "public" | "private";
 
-export type ProgrammingLanguage =
-  | "TypeScript"
-  | "JavaScript"
-  | "CSS"
-  | "HTML"
-  | "Python"
-  | "Go"
-  | "Rust"
-  | "Shell"
-  | "Vue"
-  | "C++";
+export type ProgrammingLanguage = string;
 
 export interface Repository {
   id: string;
   name: string;
   fullName: string;
   description: string;
-  language: ProgrammingLanguage;
+  language: string;
   stars: number;
   forks: number;
   openIssues: number;
@@ -56,6 +46,7 @@ export interface Issue {
   repository: string;
   createdAt: string;
   updatedAt: string;
+  closedAt: string | null;
   comments: number;
   labels: string[];
 }
@@ -115,7 +106,7 @@ export interface CommitActivityPoint {
 }
 
 export interface LanguageShare {
-  language: ProgrammingLanguage;
+  language: string;
   percentage: number;
 }
 

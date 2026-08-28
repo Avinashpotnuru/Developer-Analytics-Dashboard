@@ -1,5 +1,3 @@
-import type { ProgrammingLanguage } from "@/lib/types";
-
 const COMPACT = new Intl.NumberFormat("en-US", {
   notation: "compact",
   maximumFractionDigits: 1,
@@ -65,7 +63,7 @@ export function formatPercentage(value: number): string {
   return `${sign}${value.toFixed(1)}%`;
 }
 
-export const LANGUAGE_COLORS: Record<ProgrammingLanguage, string> = {
+export const LANGUAGE_COLORS: Record<string, string> = {
   TypeScript: "#3178c6",
   JavaScript: "#f1e05a",
   CSS: "#563d7c",
@@ -77,3 +75,8 @@ export const LANGUAGE_COLORS: Record<ProgrammingLanguage, string> = {
   Vue: "#41b883",
   "C++": "#f34b7d",
 };
+
+export function getLanguageColor(language: string): string {
+  return LANGUAGE_COLORS[language] ?? "#64748b";
+}
+
