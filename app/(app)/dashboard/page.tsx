@@ -17,6 +17,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { CommitActivityChart } from "@/components/charts/commit-activity-chart";
 import { LanguageDistributionChart } from "@/components/charts/language-distribution-chart";
+import { PrStatusChart } from "@/components/charts/pr-status-chart";
 import { ContributionHeatmap } from "@/components/charts/contribution-heatmap";
 import { RepositoriesTable } from "@/components/repositories/repositories-table";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
@@ -24,20 +25,7 @@ import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RepoSelector } from "@/components/github/repo-selector";
 import { useGitHubContext, repoFullName } from "@/components/github/github-context";
-import {
-  useCommits,
-  useCommitActivity,
-  useIssues,
-  useLanguages,
-  usePullRequests,
-  useRepositories,
-  useUser,
-} from "@/lib/github/queries";
-import {
-  summarizeIssues,
-  summarizePullRequests,
-  summarizeRepositories,
-} from "@/lib/github/transform";
+import { useDeveloperAnalytics } from "@/lib/analytics/queries";
 import { formatNumber } from "@/lib/format";
 import type { ActivityEvent } from "@/lib/types";
 
@@ -51,61 +39,35 @@ const KPI_ICONS: Record<string, LucideIcon> = {
 };
 
 export default function DashboardPage() {
-  const { username, selectedRepo, setSelectedRepo } = useGitHubContext();
+  const { username, selectedRepo } = useGitHubContext();
   const fullName = repoFullName(selectedRepo);
+  const {
+    analytics,
+    profile,
+    repositories,
+    commits,
+    isLoading,
+    isError,
+    error,
+    sectionErrors,
+    refetch,
+  } = useDeveloperAnalytics();
 
-  const user = useUser(username);
-  const repos = useRepositories(username, {
-    perPage: 100,
-    sort: "updated",
-    type: "owner",
-  });
-  const activity = useCommitActivity(selectedRepo?.owner, selectedRepo?.repo);
-  const languages = useLanguages(selectedRepo?.owner, selectedRepo?.repo);
-  const pulls = usePullRequests(selectedRepo?.owner, selectedRepo?.repo, {
-    perPage: 100,
-  });
-  const issues = useIssues(selectedRepo?.owner, selectedRepo?.repo, {
-    perPage: 100,
-  });
-  const commits = useCommits(selectedRepo?.owner, selectedRepo?.repo, {
-    perPage: 100,
-  });
-
-  React.useEffect(() => {
-    if (!selectedRepo && repos.data && repos.data.length > 0) {
-      const [owner, ...rest] = repos.data[0].fullName.split("/");
-      setSelectedRepo({ owner, repo: rest.join("/") });
-    }
-  }, [selectedRepo, repos.data, setSelectedRepo]);
-
-  const isLoading = user.isLoading || repos.isLoading;
   if (isLoading) {
     return <LoadingSkeleton />;
   }
 
-  const userError = user.error ?? repos.error;
-  if (userError) {
+  if (isError || !analytics) {
     return (
       <ErrorState
         title="Could not load the dashboard"
-        message={userError.message}
-        onRetry={() => {
-          void user.refetch();
-          void repos.refetch();
-        }}
+        message={error?.message ?? "An unexpected error occurred."}
+        onRetry={refetch}
       />
     );
   }
 
-  const profile = user.data;
-  if (!profile) {
-    return null;
-  }
-
-  const repoList = repos.data ?? [];
-
-  if (repoList.length === 0) {
+  if (!repositories || repositories.length === 0) {
     return (
       <div className="space-y-6">
         <Header username={username} />
@@ -117,24 +79,21 @@ export default function DashboardPage() {
     );
   }
 
-  const repoSummary = summarizeRepositories(repoList);
-  const prSummary = summarizePullRequests(pulls.data ?? []);
-  const issueSummary = summarizeIssues(issues.data ?? []);
-  const weekly = activity.data?.weekly ?? [];
-  const totalCommits = weekly.reduce((sum, point) => sum + point.commits, 0);
-  const contribution = activity.data?.daily ?? [];
+  const { overview, languages, commits: commitAnalytics } = analytics;
+  const weekly = commitAnalytics.activity.weekly;
+  const daily = commitAnalytics.activity.daily;
 
   const kpis = [
-    { id: "repositories", label: "Repositories", value: repoSummary.count },
-    { id: "stars", label: "Total Stars", value: repoSummary.totalStars },
-    { id: "forks", label: "Forks", value: repoSummary.totalForks },
-    { id: "commits", label: "Commits", value: totalCommits },
-    { id: "pullRequests", label: "Pull Requests", value: prSummary.total },
-    { id: "issues", label: "Issues", value: issueSummary.total },
+    { id: "repositories", label: "Repositories", value: overview.totalRepositories },
+    { id: "stars", label: "Total Stars", value: overview.totalStars },
+    { id: "forks", label: "Forks", value: overview.totalForks },
+    { id: "commits", label: "Commits", value: overview.totalCommits },
+    { id: "pullRequests", label: "Pull Requests", value: overview.totalPullRequests },
+    { id: "issues", label: "Issues", value: overview.totalIssues },
   ];
 
-  const firstName = profile.name.split(" ")[0];
-  const recentEvents: ActivityEvent[] = (commits.data ?? []).slice(0, 8).map(
+  const firstName = (profile?.name ?? username).split(" ")[0];
+  const recentEvents: ActivityEvent[] = (commits ?? []).slice(0, 8).map(
     (commit) => ({
       id: commit.id,
       type: "commit",
@@ -154,9 +113,9 @@ export default function DashboardPage() {
           <CardContent className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center">
             <div className="ring-brand-gradient rounded-full p-1">
               <Avatar size="lg" className="!size-20">
-                <AvatarImage src={profile.avatarUrl} alt={profile.name} />
+                <AvatarImage src={profile?.avatarUrl} alt={profile?.name ?? username} />
                 <AvatarFallback>
-                  {profile.name.slice(0, 2).toUpperCase()}
+                  {(profile?.name ?? username).slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -168,18 +127,18 @@ export default function DashboardPage() {
               <p className="max-w-md text-sm text-muted-foreground">
                 You have{" "}
                 <span className="font-medium text-foreground tabular-nums">
-                  {formatNumber(repoSummary.count)}
+                  {formatNumber(overview.totalRepositories)}
                 </span>{" "}
                 public repositories with{" "}
                 <span className="font-medium text-foreground tabular-nums">
-                  {formatNumber(repoSummary.totalStars)}
+                  {formatNumber(overview.totalStars)}
                 </span>{" "}
                 total stars.
               </p>
             </div>
             <div className="sm:ml-auto sm:text-right">
               <p className="font-heading text-4xl font-semibold tracking-tight tabular-nums text-gradient">
-                {formatNumber(repoSummary.totalStars)}
+                {formatNumber(overview.totalStars)}
               </p>
               <p className="text-sm text-muted-foreground">total stars earned</p>
             </div>
@@ -219,11 +178,11 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {activity.isError ? (
+            {sectionErrors.activity ? (
               <ErrorState
                 title="Commit activity unavailable"
-                message={activity.error.message}
-                onRetry={() => void activity.refetch()}
+                message={sectionErrors.activity.message}
+                onRetry={refetch}
               />
             ) : (
               <CommitActivityChart data={weekly} />
@@ -236,14 +195,34 @@ export default function DashboardPage() {
             <CardDescription>Languages in {fullName ?? "the repository"}</CardDescription>
           </CardHeader>
           <CardContent>
-            {languages.isError ? (
+            {sectionErrors.languages ? (
               <ErrorState
                 title="Languages unavailable"
-                message={languages.error.message}
-                onRetry={() => void languages.refetch()}
+                message={sectionErrors.languages.message}
+                onRetry={refetch}
               />
             ) : (
-              <LanguageDistributionChart data={languages.data ?? []} />
+              <LanguageDistributionChart data={languages.distribution} />
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4">
+        <Card className="col-span-full">
+          <CardHeader>
+            <CardTitle>Contribution Graph</CardTitle>
+            <CardDescription>Your coding activity over the last year</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {sectionErrors.activity ? (
+              <ErrorState
+                title="Contribution graph unavailable"
+                message={sectionErrors.activity.message}
+                onRetry={refetch}
+              />
+            ) : (
+              <ContributionHeatmap data={daily} />
             )}
           </CardContent>
         </Card>
@@ -252,32 +231,15 @@ export default function DashboardPage() {
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Contribution Graph</CardTitle>
-            <CardDescription>Your coding activity over the last year</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {activity.isError ? (
-              <ErrorState
-                title="Contribution graph unavailable"
-                message={activity.error.message}
-                onRetry={() => void activity.refetch()}
-              />
-            ) : (
-              <ContributionHeatmap data={contribution} />
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>Latest commits across the repository</CardDescription>
           </CardHeader>
           <CardContent>
-            {commits.isError ? (
+            {sectionErrors.commits ? (
               <ErrorState
                 title="Activity unavailable"
-                message={commits.error.message}
-                onRetry={() => void commits.refetch()}
+                message={sectionErrors.commits.message}
+                onRetry={refetch}
               />
             ) : recentEvents.length > 0 ? (
               <RecentActivity events={recentEvents} />
@@ -285,6 +247,54 @@ export default function DashboardPage() {
               <p className="py-6 text-center text-sm text-muted-foreground">
                 No recent commits.
               </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Pull Requests</CardTitle>
+            <CardDescription>
+              Merge rate {Math.round(analytics.pullRequests.mergeRate)}%
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {sectionErrors.pulls ? (
+              <ErrorState
+                title="Pull requests unavailable"
+                message={sectionErrors.pulls.message}
+                onRetry={refetch}
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                <PrStatusChart
+                  data={{
+                    open: analytics.pullRequests.open,
+                    merged: analytics.pullRequests.merged,
+                    closed: analytics.pullRequests.closed,
+                  }}
+                />
+                <dl className="grid w-full grid-cols-3 gap-2 text-center">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Open</dt>
+                    <dd className="font-heading text-lg font-semibold tabular-nums">
+                      {formatNumber(analytics.pullRequests.open)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Merged</dt>
+                    <dd className="font-heading text-lg font-semibold tabular-nums">
+                      {formatNumber(analytics.pullRequests.merged)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Closed</dt>
+                    <dd className="font-heading text-lg font-semibold tabular-nums">
+                      {formatNumber(analytics.pullRequests.closed)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -297,7 +307,7 @@ export default function DashboardPage() {
             <CardDescription>Your most recently updated projects</CardDescription>
           </CardHeader>
           <CardContent>
-            <RepositoriesTable repositories={repoList.slice(0, 6)} compact />
+            <RepositoriesTable repositories={repositories.slice(0, 6)} compact />
           </CardContent>
         </Card>
       </section>

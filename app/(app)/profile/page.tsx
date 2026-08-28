@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { LanguageDistributionChart } from "@/components/charts/language-distribution-chart";
@@ -23,59 +23,39 @@ import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RepoSelector } from "@/components/github/repo-selector";
 import { useGitHubContext } from "@/components/github/github-context";
-import { useCommits, useLanguages, useRepositories, useUser } from "@/lib/github/queries";
-import { summarizeRepositories } from "@/lib/github/transform";
+import { useDeveloperAnalytics } from "@/lib/analytics/queries";
 import { formatDate, formatNumber } from "@/lib/format";
 import { getInitials } from "@/lib/utils";
 import type { ActivityEvent } from "@/lib/types";
 
 export default function ProfilePage() {
-  const { username, selectedRepo, setSelectedRepo } = useGitHubContext();
+  const { selectedRepo } = useGitHubContext();
+  const {
+    analytics,
+    profile,
+    commits,
+    isLoading,
+    isError,
+    error,
+    sectionErrors,
+    refetch,
+  } = useDeveloperAnalytics();
 
-  const user = useUser(username);
-  const repos = useRepositories(username, {
-    perPage: 100,
-    sort: "updated",
-    type: "owner",
-  });
-  const languages = useLanguages(selectedRepo?.owner, selectedRepo?.repo);
-  const commits = useCommits(selectedRepo?.owner, selectedRepo?.repo, {
-    perPage: 100,
-  });
-
-  React.useEffect(() => {
-    if (!selectedRepo && repos.data && repos.data.length > 0) {
-      const [owner, ...rest] = repos.data[0].fullName.split("/");
-      setSelectedRepo({ owner, repo: rest.join("/") });
-    }
-  }, [selectedRepo, repos.data, setSelectedRepo]);
-
-  if (user.isLoading || repos.isLoading) {
+  if (isLoading) {
     return <LoadingSkeleton />;
   }
 
-  if (user.error ?? repos.error) {
-    const error = user.error ?? repos.error!;
+  if (isError || !analytics || !profile) {
     return (
       <ErrorState
         title="Could not load profile"
-        message={error.message}
-        onRetry={() => {
-          void user.refetch();
-          void repos.refetch();
-        }}
+        message={error?.message ?? "An unexpected error occurred."}
+        onRetry={refetch}
       />
     );
   }
 
-  const profile = user.data;
-  if (!profile) {
-    return null;
-  }
-
-  const repoSummary = summarizeRepositories(repos.data ?? []);
-
-  const recentEvents: ActivityEvent[] = (commits.data ?? []).slice(0, 8).map(
+  const recentEvents: ActivityEvent[] = (commits ?? []).slice(0, 8).map(
     (commit) => ({
       id: commit.id,
       type: "commit",
@@ -153,7 +133,7 @@ export default function ProfilePage() {
         <StatCard label="Followers" value={formatNumber(profile.followers)} icon={Users} />
         <StatCard label="Following" value={formatNumber(profile.following)} icon={UserCheck} />
         <StatCard label="Public Repos" value={formatNumber(profile.publicRepos)} icon={FolderGit2} />
-        <StatCard label="Total Stars" value={formatNumber(repoSummary.totalStars)} icon={Star} />
+        <StatCard label="Total Stars" value={formatNumber(analytics.overview.totalStars)} icon={Star} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -168,14 +148,14 @@ export default function ProfilePage() {
                 description="Choose a repository to view its language breakdown."
                 action={<RepoSelector />}
               />
-            ) : languages.isError ? (
+            ) : sectionErrors.languages ? (
               <ErrorState
                 title="Languages unavailable"
-                message={languages.error.message}
-                onRetry={() => void languages.refetch()}
+                message={sectionErrors.languages.message}
+                onRetry={refetch}
               />
             ) : (
-              <LanguageDistributionChart data={languages.data ?? []} />
+              <LanguageDistributionChart data={analytics.languages.distribution} />
             )}
           </CardContent>
         </Card>
@@ -191,11 +171,11 @@ export default function ProfilePage() {
                 description="Choose a repository to view recent activity."
                 action={<RepoSelector />}
               />
-            ) : commits.isError ? (
+            ) : sectionErrors.commits ? (
               <ErrorState
                 title="Activity unavailable"
-                message={commits.error.message}
-                onRetry={() => void commits.refetch()}
+                message={sectionErrors.commits.message}
+                onRetry={refetch}
               />
             ) : recentEvents.length > 0 ? (
               <RecentActivity events={recentEvents} />

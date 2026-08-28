@@ -13,63 +13,26 @@ import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RepoSelector } from "@/components/github/repo-selector";
 import { useGitHubContext, repoFullName } from "@/components/github/github-context";
-import { useIssues } from "@/lib/github/queries";
-import { summarizeIssues } from "@/lib/github/transform";
+import { useDeveloperAnalytics } from "@/lib/analytics/queries";
+import { calculateIssueTrend } from "@/lib/analytics";
 import { formatNumber } from "@/lib/format";
-import type { Issue, IssueTrendPoint } from "@/lib/types";
-
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
-function formatMonthLabel(iso: string): string {
-  const [year, month] = iso.split("-");
-  const index = Number(month) - 1;
-  if (index < 0 || index > 11) return iso;
-  return `${MONTHS[index]} ${year.slice(2)}`;
-}
-
-function buildIssueTrend(issues: Issue[]): IssueTrendPoint[] {
-  const buckets = new Map<string, { opened: number; closed: number }>();
-  for (const issue of issues) {
-    const openedKey = issue.createdAt.slice(0, 7);
-    const opened = buckets.get(openedKey) ?? { opened: 0, closed: 0 };
-    opened.opened += 1;
-    buckets.set(openedKey, opened);
-    if (issue.state === "closed" && issue.closedAt) {
-      const closedKey = issue.closedAt.slice(0, 7);
-      const closed = buckets.get(closedKey) ?? { opened: 0, closed: 0 };
-      closed.closed += 1;
-      buckets.set(closedKey, closed);
-    }
-  }
-
-  const labels: string[] = [];
-  const now = new Date();
-  for (let offset = 5; offset >= 0; offset -= 1) {
-    const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-    labels.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
-  }
-
-  return labels.map((label) => ({
-    month: formatMonthLabel(label),
-    opened: buckets.get(label)?.opened ?? 0,
-    closed: buckets.get(label)?.closed ?? 0,
-  }));
-}
 
 export default function IssuesPage() {
   const { selectedRepo } = useGitHubContext();
-  const owner = selectedRepo?.owner;
-  const repo = selectedRepo?.repo;
   const fullName = repoFullName(selectedRepo);
+  const {
+    analytics,
+    issues,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useDeveloperAnalytics();
 
-  const query = useIssues(owner, repo, { perPage: 100 });
-
-  const issues = React.useMemo(() => query.data ?? [], [query.data]);
-  const counts = summarizeIssues(issues);
-  const trend = React.useMemo(() => buildIssueTrend(issues), [issues]);
+  const trend = React.useMemo(
+    () => calculateIssueTrend(issues ?? []),
+    [issues],
+  );
 
   if (!selectedRepo) {
     return (
@@ -87,19 +50,22 @@ export default function IssuesPage() {
     );
   }
 
-  if (query.isLoading) {
+  if (isLoading) {
     return <LoadingSkeleton />;
   }
 
-  if (query.isError) {
+  if (isError || !analytics) {
     return (
       <ErrorState
         title="Could not load issues"
-        message={query.error.message}
-        onRetry={() => void query.refetch()}
+        message={error?.message ?? "An unexpected error occurred."}
+        onRetry={refetch}
       />
     );
   }
+
+  const issueAnalytics = analytics.issues;
+  const list = issues ?? [];
 
   return (
     <div className="space-y-6">
@@ -109,15 +75,18 @@ export default function IssuesPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total Issues" value={formatNumber(counts.total)} icon={CircleSlash} />
-        <StatCard label="Open" value={formatNumber(counts.open)} icon={CircleDot} />
-        <StatCard label="Closed" value={formatNumber(counts.closed)} icon={CheckCircle2} />
+        <StatCard label="Total Issues" value={formatNumber(issueAnalytics.total)} icon={CircleSlash} />
+        <StatCard label="Open" value={formatNumber(issueAnalytics.open)} icon={CircleDot} />
+        <StatCard label="Closed" value={formatNumber(issueAnalytics.closed)} icon={CheckCircle2} />
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Issue Trend</CardTitle>
-          <CardDescription>Issues opened vs closed per month</CardDescription>
+          <CardDescription>
+            Issues opened vs closed per month · resolution rate{" "}
+            {issueAnalytics.resolutionRate}%
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <IssueTrendChart data={trend} />
@@ -126,10 +95,10 @@ export default function IssuesPage() {
 
       <div className="space-y-3">
         <h2 className="font-heading text-lg font-semibold">Issue History</h2>
-        {issues.length === 0 ? (
+        {list.length === 0 ? (
           <EmptyState title="No issues" description="This repository has no issues." />
         ) : (
-          <IssueTable issues={issues} />
+          <IssueTable issues={list} />
         )}
       </div>
     </div>

@@ -7,7 +7,6 @@ import type {
   ContributionDay,
   DeveloperProfile,
   Issue,
-  LanguageShare,
   PullRequest,
   Repository,
 } from "@/lib/types";
@@ -160,7 +159,7 @@ export function useLanguages(owner: string | undefined, repo: string | undefined
   return useQuery({
     queryKey: ["languages", owner, repo],
     queryFn: () =>
-      apiGet<LanguageShare[]>(
+      apiGet<Record<string, number>>(
         `/repos/${encodeURIComponent(owner ?? "")}/${encodeURIComponent(repo ?? "")}/languages`,
       ),
     enabled: Boolean(owner) && Boolean(repo),

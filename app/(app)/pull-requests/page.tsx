@@ -17,17 +17,20 @@ import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RepoSelector } from "@/components/github/repo-selector";
 import { useGitHubContext, repoFullName } from "@/components/github/github-context";
-import { usePullRequests } from "@/lib/github/queries";
-import { summarizePullRequests } from "@/lib/github/transform";
+import { useDeveloperAnalytics } from "@/lib/analytics/queries";
 import { formatNumber } from "@/lib/format";
 
 export default function PullRequestsPage() {
   const { selectedRepo } = useGitHubContext();
-  const owner = selectedRepo?.owner;
-  const repo = selectedRepo?.repo;
   const fullName = repoFullName(selectedRepo);
-
-  const query = usePullRequests(owner, repo, { perPage: 100 });
+  const {
+    analytics,
+    pullRequests,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useDeveloperAnalytics();
 
   if (!selectedRepo) {
     return (
@@ -45,22 +48,22 @@ export default function PullRequestsPage() {
     );
   }
 
-  if (query.isLoading) {
+  if (isLoading) {
     return <LoadingSkeleton />;
   }
 
-  if (query.isError) {
+  if (isError || !analytics) {
     return (
       <ErrorState
         title="Could not load pull requests"
-        message={query.error.message}
-        onRetry={() => void query.refetch()}
+        message={error?.message ?? "An unexpected error occurred."}
+        onRetry={refetch}
       />
     );
   }
 
-  const pullRequests = query.data ?? [];
-  const counts = summarizePullRequests(pullRequests);
+  const prAnalytics = analytics.pullRequests;
+  const list = pullRequests ?? [];
 
   return (
     <div className="space-y-6">
@@ -70,23 +73,25 @@ export default function PullRequestsPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total PRs" value={formatNumber(counts.total)} icon={GitPullRequest} />
-        <StatCard label="Open" value={formatNumber(counts.open)} icon={CircleDot} />
-        <StatCard label="Merged" value={formatNumber(counts.merged)} icon={GitMerge} />
-        <StatCard label="Closed" value={formatNumber(counts.closed)} icon={GitPullRequestClosed} />
+        <StatCard label="Total PRs" value={formatNumber(prAnalytics.total)} icon={GitPullRequest} />
+        <StatCard label="Open" value={formatNumber(prAnalytics.open)} icon={CircleDot} />
+        <StatCard label="Merged" value={formatNumber(prAnalytics.merged)} icon={GitMerge} />
+        <StatCard label="Closed" value={formatNumber(prAnalytics.closed)} icon={GitPullRequestClosed} />
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Pull Request Status</CardTitle>
-          <CardDescription>Distribution by current state</CardDescription>
+          <CardDescription>
+            Distribution by current state · merge rate {prAnalytics.mergeRate}%
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <PrStatusChart
             data={{
-              open: counts.open,
-              merged: counts.merged,
-              closed: counts.closed,
+              open: prAnalytics.open,
+              merged: prAnalytics.merged,
+              closed: prAnalytics.closed,
             }}
           />
         </CardContent>
@@ -96,10 +101,10 @@ export default function PullRequestsPage() {
         <h2 className="font-heading text-lg font-semibold">
           Pull Request History
         </h2>
-        {pullRequests.length === 0 ? (
+        {list.length === 0 ? (
           <EmptyState title="No pull requests" description="This repository has no pull requests." />
         ) : (
-          <PullRequestTable pullRequests={pullRequests} />
+          <PullRequestTable pullRequests={list} />
         )}
       </div>
     </div>

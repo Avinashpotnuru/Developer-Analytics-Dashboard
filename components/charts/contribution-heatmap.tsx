@@ -60,41 +60,41 @@ export function ContributionHeatmap({ data, className }: ContributionHeatmapProp
   return (
     <div className={className}>
       <div className="overflow-x-auto pb-1">
-        <div className="inline-flex flex-col gap-1.5">
-          <div className="flex gap-1 pl-7">
+        <div className="flex min-w-[640px] flex-col gap-1.5">
+          <div className="flex gap-1 pl-6">
             {weeksWithLabel.map(({ show, month }, i) => (
               <div
                 key={i}
-                className="w-3 text-[10px] leading-none text-muted-foreground"
+                className="flex-1 truncate text-[10px] leading-none text-muted-foreground"
               >
                 {show ? MONTHS[month] : ""}
               </div>
             ))}
           </div>
           <div className="flex gap-1">
-            <div className="flex flex-col gap-1 pr-1">
+            <div className="flex w-6 flex-col gap-1 pr-1">
               {WEEKDAY_LABELS.map((label, i) => (
                 <span
                   key={i}
-                  className="flex size-3 items-center text-[9px] leading-none text-muted-foreground"
+                  className="flex flex-1 items-center text-[9px] leading-none text-muted-foreground"
                 >
                   {label}
                 </span>
               ))}
             </div>
             {weeksWithLabel.map(({ week }, wi) => (
-              <div key={wi} className="flex flex-col gap-1">
+              <div key={wi} className="flex min-w-0 flex-1 flex-col gap-1">
                 {week.map((day, di) =>
                   day ? (
                     <div
                       key={di}
                       title={`${day.count} commits on ${day.date}`}
                       aria-label={`${day.count} commits on ${day.date}`}
-                      className="size-3 rounded-[3px] ring-1 ring-inset ring-black/5 transition-transform hover:scale-125"
+                      className="aspect-square rounded-[3px] ring-1 ring-inset ring-black/5 transition-transform hover:scale-125"
                       style={{ backgroundColor: SCALE[day.level] }}
                     />
                   ) : (
-                    <div key={di} className="size-3 rounded-[3px]" />
+                    <div key={di} className="aspect-square rounded-[3px]" />
                   ),
                 )}
               </div>
