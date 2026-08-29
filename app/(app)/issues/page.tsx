@@ -12,13 +12,14 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RepoSelector } from "@/components/github/repo-selector";
+import { OnboardingGuide } from "@/components/dashboard/onboarding-guide";
 import { useGitHubContext, repoFullName } from "@/components/github/github-context";
 import { useDeveloperAnalytics } from "@/lib/analytics/queries";
 import { calculateIssueTrend } from "@/lib/analytics";
 import { formatNumber } from "@/lib/format";
 
 export default function IssuesPage() {
-  const { selectedRepo } = useGitHubContext();
+  const { selectedRepo, username } = useGitHubContext();
   const fullName = repoFullName(selectedRepo);
   const {
     analytics,
@@ -33,6 +34,10 @@ export default function IssuesPage() {
     () => calculateIssueTrend(issues ?? []),
     [issues],
   );
+
+  if (!username) {
+    return <OnboardingGuide />;
+  }
 
   if (!selectedRepo) {
     return (

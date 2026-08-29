@@ -22,6 +22,7 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RepoSelector } from "@/components/github/repo-selector";
+import { OnboardingGuide } from "@/components/dashboard/onboarding-guide";
 import { useGitHubContext } from "@/components/github/github-context";
 import { useDeveloperAnalytics } from "@/lib/analytics/queries";
 import { formatDate, formatNumber } from "@/lib/format";
@@ -29,10 +30,11 @@ import { getInitials } from "@/lib/utils";
 import type { ActivityEvent } from "@/lib/types";
 
 export default function ProfilePage() {
-  const { selectedRepo } = useGitHubContext();
+  const { selectedRepo, username } = useGitHubContext();
   const {
     analytics,
     profile,
+    repositories,
     commits,
     isLoading,
     error,
@@ -42,6 +44,10 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return <LoadingSkeleton />;
+  }
+
+  if (!username) {
+    return <OnboardingGuide />;
   }
 
   if (!profile) {
@@ -142,11 +148,18 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent>
             {!selectedRepo ? (
-              <EmptyState
-                title="Select a repository"
-                description="Choose a repository to view its language breakdown."
-                action={<RepoSelector />}
-              />
+              repositories && repositories.length === 0 ? (
+                <EmptyState
+                  title="No repositories found"
+                  description="We couldn't find any public repositories for this account."
+                />
+              ) : (
+                <EmptyState
+                  title="Select a repository"
+                  description="Choose a repository to view its language breakdown."
+                  action={<RepoSelector />}
+                />
+              )
             ) : sectionErrors.languages ? (
               <ErrorState
                 title="Languages unavailable"
@@ -165,11 +178,18 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent>
             {!selectedRepo ? (
-              <EmptyState
-                title="Select a repository"
-                description="Choose a repository to view recent activity."
-                action={<RepoSelector />}
-              />
+              repositories && repositories.length === 0 ? (
+                <EmptyState
+                  title="No repositories found"
+                  description="We couldn't find any public repositories for this account."
+                />
+              ) : (
+                <EmptyState
+                  title="Select a repository"
+                  description="Choose a repository to view recent activity."
+                  action={<RepoSelector />}
+                />
+              )
             ) : sectionErrors.commits ? (
               <ErrorState
                 title="Activity unavailable"

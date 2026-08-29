@@ -9,6 +9,8 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RepoSelector } from "@/components/github/repo-selector";
+import { OnboardingGuide } from "@/components/dashboard/onboarding-guide";
+import { useGitHubContext } from "@/components/github/github-context";
 import { useDeveloperAnalytics } from "@/lib/analytics/queries";
 import { formatNumber } from "@/lib/format";
 
@@ -22,11 +24,17 @@ export default function RepositoriesPage() {
     refetch,
   } = useDeveloperAnalytics();
 
+  const { username } = useGitHubContext();
+
   if (isLoading) {
     return <LoadingSkeleton />;
   }
 
-  if (isError || !analytics || !repositories) {
+  if (!username) {
+    return <OnboardingGuide />;
+  }
+
+  if (isError || !repositories) {
     return (
       <ErrorState
         title="Could not load repositories"
@@ -36,7 +44,25 @@ export default function RepositoriesPage() {
     );
   }
 
-  const repoAnalytics = analytics.repositories;
+  if (repositories.length === 0) {
+    return (
+      <EmptyState
+        title="No repositories found"
+        description="We couldn't find any public repositories for this account."
+      />
+    );
+  }
+
+  const repoAnalytics = analytics?.repositories;
+  if (!repoAnalytics) {
+    return (
+      <ErrorState
+        title="Could not load repositories"
+        message={error?.message ?? "An unexpected error occurred."}
+        onRetry={refetch}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
