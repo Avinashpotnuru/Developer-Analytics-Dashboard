@@ -35,7 +35,6 @@ export default function ProfilePage() {
     profile,
     commits,
     isLoading,
-    isError,
     error,
     sectionErrors,
     refetch,
@@ -45,7 +44,7 @@ export default function ProfilePage() {
     return <LoadingSkeleton />;
   }
 
-  if (isError || !analytics || !profile) {
+  if (!profile) {
     return (
       <ErrorState
         title="Could not load profile"
@@ -133,7 +132,7 @@ export default function ProfilePage() {
         <StatCard label="Followers" value={formatNumber(profile.followers)} icon={Users} />
         <StatCard label="Following" value={formatNumber(profile.following)} icon={UserCheck} />
         <StatCard label="Public Repos" value={formatNumber(profile.publicRepos)} icon={FolderGit2} />
-        <StatCard label="Total Stars" value={formatNumber(analytics.overview.totalStars)} icon={Star} />
+        <StatCard label="Total Stars" value={formatNumber(analytics?.overview.totalStars ?? 0)} icon={Star} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -155,7 +154,7 @@ export default function ProfilePage() {
                 onRetry={refetch}
               />
             ) : (
-              <LanguageDistributionChart data={analytics.languages.distribution} />
+              <LanguageDistributionChart data={analytics?.languages.distribution ?? []} />
             )}
           </CardContent>
         </Card>

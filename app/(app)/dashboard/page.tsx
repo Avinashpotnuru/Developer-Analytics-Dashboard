@@ -67,16 +67,6 @@ export default function DashboardPage() {
     return <LoadingSkeleton />;
   }
 
-  if (isError || !analytics) {
-    return (
-      <ErrorState
-        title="Could not load the dashboard"
-        message={error?.message ?? "An unexpected error occurred."}
-        onRetry={refetch}
-      />
-    );
-  }
-
   if (!repositories || repositories.length === 0) {
     return (
       <div className="space-y-6">
@@ -86,6 +76,16 @@ export default function DashboardPage() {
           description={`We couldn't find any public repositories for @${username}.`}
         />
       </div>
+    );
+  }
+
+  if (isError || !analytics) {
+    return (
+      <ErrorState
+        title="Could not load the dashboard"
+        message={error?.message ?? "An unexpected error occurred."}
+        onRetry={refetch}
+      />
     );
   }
 
